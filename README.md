@@ -1,5 +1,4 @@
-# Sanctions Screening and AML Risk Scoring (SQL Project)
-
+# Sanctions Screening and AML Risk Scoring
 This project simulates a real-world **Sanctions Screening and Anti–Money Laundering (AML) Risk Scoring Engine**, similar to the workflows fintech compliance teams use to detect high-risk users, reduce false positives, and prioritize operational workload.
 
 ---
