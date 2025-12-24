@@ -1,0 +1,81 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2867
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 DROP TABLE IF EXISTS sanctions;\
+\
+CREATE TABLE sanctions (\
+    user_id INTEGER,\
+    name_match_score REAL,\
+    country_risk TEXT,\
+    transaction_risk TEXT,\
+    repeat_offender TEXT,\
+    final_decision TEXT\
+);\
+\
+INSERT INTO sanctions VALUES\
+(101, 0.92, 'High', 'Medium', 'Yes', 'Pending'),\
+(102, 0.14, 'Low', 'Low', 'No', 'Approved'),\
+(103, 0.71, 'Medium', 'High', 'No', 'Pending'),\
+(104, 0.35, 'High', 'Low', 'No', 'Approved'),\
+(105, 0.88, 'High', 'High', 'Yes', 'Pending'),\
+(106, 0.21, 'Medium', 'Low', 'No', 'Approved'),\
+(107, 0.64, 'Low', 'Medium', 'No', 'Approved'),\
+(108, 0.93, 'High', 'High', 'Yes', 'Pending'),\
+(109, 0.52, 'Low', 'Low', 'No', 'Approved'),\
+(110, 0.76, 'Medium', 'High', 'No', 'Pending');\
+\
+-- 1. Flag possible sanctions match\
+SELECT user_id,\
+       name_match_score,\
+       CASE WHEN name_match_score >= 0.70 THEN 'Sanctions Match' ELSE 'Clear' END AS sanctions_flag\
+FROM sanctions;\
+\
+-- 2. Total Risk Score\
+SELECT user_id,\
+       name_match_score,\
+       country_risk,\
+       transaction_risk,\
+       repeat_offender,\
+       (CASE WHEN name_match_score >= 0.70 THEN 2 ELSE 0 END +\
+        CASE WHEN country_risk = 'High' THEN 2 WHEN country_risk = 'Medium' THEN 1 ELSE 0 END +\
+        CASE WHEN transaction_risk = 'High' THEN 2 WHEN transaction_risk = 'Medium' THEN 1 ELSE 0 END +\
+        CASE WHEN repeat_offender = 'Yes' THEN 1 ELSE 0 END) AS total_risk\
+FROM sanctions;\
+\
+-- 3. Determine False Positives\
+SELECT user_id,\
+       name_match_score,\
+       CASE WHEN name_match_score >= 0.70 AND country_risk = 'Low'\
+                 THEN 'Possible False Positive'\
+            ELSE 'Likely True Match'\
+       END AS alert_quality\
+FROM sanctions;\
+\
+-- 4. Tier Risk\
+SELECT user_id,\
+       total_risk,\
+       CASE WHEN total_risk >= 5 THEN 'High Risk'\
+            WHEN total_risk >= 3 THEN 'Medium Risk'\
+            ELSE 'Low Risk'\
+       END AS risk_tier\
+FROM (\
+    SELECT user_id,\
+        (CASE WHEN name_match_score >= 0.70 THEN 2 ELSE 0 END +\
+         CASE WHEN country_risk = 'High' THEN 2 WHEN country_risk = 'Medium' THEN 1 ELSE 0 END +\
+         CASE WHEN transaction_risk = 'High' THEN 2 WHEN transaction_risk = 'Medium' THEN 1 ELSE 0 END +\
+         CASE WHEN repeat_offender = 'Yes' THEN 1 ELSE 0 END) AS total_risk\
+    FROM sanctions\
+);\
+\
+-- 5. Compliance Workload\
+SELECT\
+  COUNT(*) AS total_alerts,\
+  SUM(CASE WHEN name_match_score >= 0.7 THEN 1 ELSE 0 END) AS alerts_from_name_match,\
+  SUM(CASE WHEN country_risk = 'High' THEN 1 ELSE 0 END) AS high_geo_alerts,\
+  SUM(CASE WHEN final_decision = 'Pending' THEN 1 ELSE 0 END) AS unresolved_cases\
+FROM sanctions;\
+}
